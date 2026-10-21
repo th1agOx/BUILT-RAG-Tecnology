@@ -1,0 +1,1 @@
+# linguagem comum (termo em inglês = termo do contrato)

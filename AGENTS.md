@@ -1,0 +1,1 @@
+# Regas Fixas Para o Agente Writer
