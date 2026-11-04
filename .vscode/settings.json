@@ -1,0 +1,8 @@
+﻿
+{\
+  " python.interpreterPath\: \.venv\\Scripts\\python\,
+ \formatter.enabled\: true,
+ \ruff.format.enabled\: true,
+ \python.unitTests.pytestEnabled\: true,
+ \explorer.hidden\: [\\\.venv\, \__pycache__\, \.git\]
+}
