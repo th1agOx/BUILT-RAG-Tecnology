@@ -1,9 +1,9 @@
 # BUILT-RAG V1
 
 ## Sobre
-Serviço de entrega sob demanda com precificação personalizada, usando assistentes de IA para automatizar o atendimento. Os assistentes respondem a partir de uma base de conhecimento (vault no Obsidian) usando RAG.
+ServiÃ§o de entrega sob demanda com precificaÃ§Ã£o personalizada, usando assistentes de IA para automatizar o atendimento. Os assistentes respondem a partir de uma base de conhecimento (vault no Obsidian) usando RAG.
 
-## Instalação
+## InstalaÃ§Ã£o
 `ash
 uv sync
 `
@@ -16,7 +16,7 @@ Rodar os seguintes comandos:
 - uv run pytest
 - uv run lint-imports
 
-## Documentação
+## DocumentaÃ§Ã£o
 - [docs/glossary.md](docs/glossary.md)
 - [docs/adr/0001-ddd.md](docs/adr/0001-ddd.md)
 - [docs/adr/0002-v1-scope.md](docs/adr/0002-v1-scope.md)
@@ -28,6 +28,6 @@ Rodar os seguintes comandos:
 - Etapa 2: Esqueleto
 - Etapa 3: Qualidade local
 - Etapa 4: Testes de arquitetura
-- Etapa 5: CI (adiada)
-- Etapa 6: Governança (adiada)
-- Etapa 7: Documentação e fechamento
+- Etapa 5: CI (aprovada)
+- Etapa 6: GovernanÃ§a (aprovada)
+- Etapa 7: DocumentaÃ§Ã£o e fechamento
