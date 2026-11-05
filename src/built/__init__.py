@@ -1,1 +1,1 @@
-﻿__init__.py do pacote built.
+"""Pacote raiz built. Ponto de entrada dos contextos do projeto."""

@@ -1,7 +1,7 @@
 # ADR-0002: Escopo da V1 e decisões de plataforma
 
 - **Status:** Aceito
-- **Data:** 2026-11-04
+- **Data:** 2026-11-05
 - **Decisor:** Thiago (BUILT)
 
 ## Contexto
@@ -14,11 +14,11 @@ O foco inicial de medição é **custo e desempenho** (tokens, tempo, gasto). A 
 
 ### 1. Contextos e entradas
 
-- Contextos da V1: `policy`, `knowledge` e `rag`, mais um `shared_kernel` puro. A estrutura completa está no ADR-0003, que refina o ADR-0001.
-- Os perfis de uso (lead, cliente, operação) **não são contextos**. São portas de entrada, em `entrypoints/`. Todas chamam o mesmo fluxo do `rag`, mudando só o perfil. A V1 tem uma entrada: o chat de funil (LLM 1). A pasta `entrypoints/` nasce na Camada 4.
+- Contextos da V1: `policy` e `knowledge`, mais o `shared_kernel` puro, o pacote `infrastructure` (motor `rag` e adaptadores) e `entrypoints`. A estrutura completa está no ADR-0003, que refina o ADR-0001.
+- Os perfis de uso (lead, cliente, operação) **não são contextos**. São portas de entrada, em `entrypoints/`. Todas chamam o mesmo fluxo do `rag`, mudando só o perfil. A V1 tem uma entrada: o chat de funil (LLM 1). A pasta `entrypoints/` existe desde a Camada 0, mas o código dela chega na Camada 4.
 - O contexto `qualification` (as perguntas, a pontuação e o encaminhamento para humano) nasce na Camada 5.
 - Pós-venda, suporte e sustentação serão contextos novos no futuro. Os atuais não mudam.
-- **Porta pública:** o `policy` publica `built.policy.published` (vocabulário) e `built.policy.application`. `knowledge` e `rag` seguem as regras do ADR-0003. Um contexto nunca importa as peças internas de outro.
+- **Porta pública:** o `policy` publica `built.policy.published` (vocabulário) e `built.policy.application`. O resto do sistema segue as regras do ADR-0003. Ninguém importa as peças internas do `policy`.
 
 ### 2. Fluxo da V1
 
@@ -61,7 +61,7 @@ A proteção real não depende dela, porque a LLM 1 só vê documentos públicos
 - **Camada 4 (mínima):** cada pergunta recebe um ID. Registramos tempo por etapa (busca, gate, LLM, linter), tokens, custo estimado e contadores de incidentes do gate e do linter.
 - **Camada 7 (completa):** painéis, alertas e trilha de auditoria.
 - **Privacidade (obrigatório):** traces e logs guardam IDs, números e tempos. Nunca guardam o texto da pergunta, da resposta, dos chunks nem dos documentos. Alguns instrumentadores de LLM registram o conteúdo por padrão, então a configuração deve desligar isso e a Camada 4 precisa de um teste que comprove. Confirmar como desligar na versão usada.
-- A telemetria vive em `rag/adapters/`, atrás de uma porta definida em `rag/ports.py`. O `policy/domain` e o `shared_kernel` não a importam.
+- A telemetria vive em `infrastructure/adapters/telemetry`, atrás de uma porta definida em `infrastructure/rag/ports.py`. O `policy/domain` e o `shared_kernel` não a importam.
 - Confirmar na documentação como o Phoenix recebe os dados do OpenTelemetry e como ele é hospedado.
 
 ### 6. Formatos
@@ -71,14 +71,20 @@ A proteção real não depende dela, porque a LLM 1 só vê documentos públicos
 - Qdrant: REST ou gRPC é uma escolha do adaptador e não afeta as regras.
 - gRPC com Protocol Buffers entre serviços só entra quando um contexto virar um serviço separado. Enquanto for um monólito, as chamadas acontecem dentro do mesmo processo.
 
+### 7. Autenticação (em espera)
+
+- Na V1 não há área de login nem de usuário. O lead é uma sessão anônima.
+- No futuro, o site da BUILT poderá enviar um token de autenticação, para a LLM 2, o pós-qualificação e o acompanhamento e suporte dos serviços. O foco da operação não é o acompanhamento pelo site, então isso fica em espera.
+- Quando entrar, o tenant virá do token validado, nunca do texto digitado, e a validação mora no andar `policy/infrastructure`. Até lá, esse andar fica vazio.
+
 ## Fica para depois (V2), decidido por dados
 
-| Item                   | Dado que decide                                     | Sinal para avançar       |
-| ---------------------- | --------------------------------------------------- | ------------------------ |
-| Streaming              | Tempo até a resposta (p95), desistência da conversa | Leads desistem esperando |
-| Fallback de modelo     | Taxa de erro e timeout do provedor                  | Falhas frequentes        |
-| Prompt caching         | Tokens fixos por pergunta e volume                  | Custo relevante          |
-| Tool calling e agentes | Ação real necessária                                | Pós-venda                |
+| Item | Dado que decide | Sinal para avançar |
+|---|---|---|
+| Streaming | Tempo até a resposta (p95), desistência da conversa | Leads desistem esperando |
+| Fallback de modelo | Taxa de erro e timeout do provedor | Falhas frequentes |
+| Prompt caching | Tokens fixos por pergunta e volume | Custo relevante |
+| Tool calling e agentes | Ação real necessária | Pós-venda |
 
 Os limites numéricos de cada sinal serão definidos pelo dono quando houver dados reais.
 
@@ -92,6 +98,7 @@ Os limites numéricos de cada sinal serão definidos pelo dono quando houver dad
 - As 4 perguntas de qualificação, a pontuação e o destino do encaminhamento (CRM ou WhatsApp).
 - Valores do limite de consumo por perfil e limites numéricos dos gatilhos da V2.
 - Estratégia de coleções no Qdrant.
+- Mecanismo de autenticação (em espera, seção 7).
 - Busca híbrida e re-ranker: decisão de adotar já tomada. A recomendação é medir antes com busca só densa, para ter uma linha de base, e usar um modelo multilíngue (a base é em português).
 
 ## Consequências

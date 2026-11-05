@@ -1,109 +1,132 @@
-# ADR-0003: Arquitetura simplificada da V1
+# ADR-0003: Estrutura de pastas e arquitetura da V1
 
 - **Status:** Aceito
-- **Data:** 2026-11-04
+- **Data:** 2026-11-05 (substitui a versão de 2026-11-04, que mantinha `knowledge` e `rag` como módulos planos)
 - **Decisor:** Thiago (BUILT)
-- **Refina:** ADR-0001. O desenho completo continua sendo o alvo para a V2 e a V3.
+- **Refina:** ADR-0001. É a fonte única da árvore de pastas e das regras de importação (R1 a R6).
 
 ## Contexto
 
-O ADR-0001 define DDD com Bounded Contexts, cada um com três andares (`domain`, `application`, `infrastructure`). Na V1 existe uma só LLM (a do funil), uma só entrada, nenhum tenant, e a maior parte do trabalho é técnica: ler arquivos, chamar o Qdrant, chamar a LLM.
+O ADR-0001 define DDD com Bounded Contexts. Na V1 existe uma só LLM (a do funil), uma só entrada e nenhum tenant, então três andares em todos os contextos seriam cerimônia sem ganho.
 
-Três andares em todos os contextos geraria arquivos vazios, interfaces que só repassam dados e mais passos de revisão, sem proteger nada a mais. Uma sugestão externa de simplificação foi avaliada e adotamos parte dela. O que protege o produto (o `policy`, o gate de contexto e o linter de output) fica intacto.
+Mas a árvore de pastas não pode mudar de formato quando a V2 e a V3 chegarem. Mover pasta custa caro: quebra imports, testes de arquitetura, documentos e a memória dos agentes. Por isso a decisão é: **o formato final fica definido agora**. Na V1 algumas pastas ficam quase vazias. Depois, o sistema cresce com pastas novas, nunca com pastas mudando de lugar.
 
 ## Decisão
 
-### 1. Estrutura da V1
+### 1. Estrutura
 
 ```
 src/built/
-├── shared_kernel/        # tipos e utilitários puros (não é um contexto)
-├── policy/               # contexto com os três andares
-│   ├── published/        # vocabulário público do policy
-│   ├── domain/           # andar: regras puras
-│   ├── application/      # andar: orquestra e define portas
-│   └── infrastructure/   # andar: tecnologia
-├── knowledge/            # contexto: vault → índice
-│   ├── model/            # o que é um documento válido
-│   ├── ingestion/        # lê, valida, divide em chunks e indexa
-│   └── index/            # único lugar que fala com o Qdrant
-└── rag/                  # contexto: responde perguntas
-    ├── ports.py          # interfaces que o pipeline conhece (LLM, telemetria, recuperação)
-    ├── retriever.py      # único que lê o índice, sempre com o filtro do policy
-    ├── gate.py           # gate de contexto
-    ├── prompt.py         # montagem do prompt e limite de janela
-    ├── output_linter.py  # linter de output
-    ├── pipeline.py       # orquestra o fluxo da V1
-    └── adapters/         # LLM e telemetria (a tecnologia)
+├── shared_kernel/            # contratos e tipos comuns (só biblioteca padrão)
+├── policy/                   # contexto completo: quem vê o quê
+│   ├── published/            # vocabulário público do policy
+│   ├── domain/               # andar: regras puras
+│   ├── application/          # andar: casos de uso e portas
+│   └── infrastructure/       # andar: tecnologia do policy (token, sessão)
+├── knowledge/                # contexto: vault → índice
+│   ├── model/                # o que é um documento válido
+│   └── ingestion/            # lê a vault, valida, divide em chunks e indexa
+├── infrastructure/           # pacote: o motor de resposta e tudo que é externo
+│   ├── rag/                  # motor de resposta
+│   │   ├── ports.py          # interfaces que o motor conhece
+│   │   ├── retriever.py      # busca, sempre com o filtro do policy
+│   │   ├── gate.py           # gate de contexto
+│   │   ├── prompt.py         # montagem do prompt e limite de janela
+│   │   ├── output_linter.py  # linter de output
+│   │   └── pipeline.py       # orquestra o fluxo
+│   └── adapters/             # contratos com o mundo externo
+│       ├── qdrant/           # único que fala com o Qdrant
+│       ├── llm/              # provedor de LLM
+│       └── telemetry/        # OpenTelemetry e Phoenix
+└── entrypoints/              # a API: por onde o mundo chega (código na Camada 4)
 ```
-
-A pasta `entrypoints/` (a entrada por perfil) nasce na Camada 4. O contexto `qualification` nasce na Camada 5.
 
 Os andares `domain/`, `application/` e `infrastructure/` existem só dentro do `policy`. Nunca ficam soltos na raiz de `src/built/`.
 
+**Atenção ao nome `infrastructure`.** Ele aparece duas vezes, com sentidos diferentes:
+
+- o **andar** `policy/infrastructure`: a tecnologia que só o `policy` usa (validar token, por exemplo);
+- o **pacote** `infrastructure/`: o motor de resposta e os adaptadores de todo o sistema.
+
+Em texto, escreva sempre "andar infrastructure do policy" ou "pacote infrastructure".
+
 ### 2. O que cada parte faz
 
-| Parte                 | Responsabilidade                                                                                 |
-| --------------------- | ------------------------------------------------------------------------------------------------ |
-| `shared_kernel`       | Peças comuns mínimas: IDs, tipo de resultado, esquema do payload do índice. Só biblioteca padrão |
-| `policy`              | Quem pergunta e o que pode ver. É o coração do sistema (core domain)                             |
-| `knowledge/model`     | O que é um documento válido (contrato Built Knowledge Model) e seu ciclo de vida                 |
-| `knowledge/ingestion` | Lê a vault, valida, divide em chunks e indexa                                                    |
-| `knowledge/index`     | O único lugar que fala com o Qdrant                                                              |
-| `rag`                 | Responde perguntas, em um fluxo determinístico                                                   |
+| Parte | Responsabilidade |
+|---|---|
+| `shared_kernel` | A ponte comum entre as partes: IDs, tipos e o formato dos dados que viajam entre vault, API, backend e, no futuro, outros serviços. Só dados simples (biblioteca padrão). Nunca lógica, nunca conexão |
+| `policy` | Quem pergunta e o que pode ver. É o coração do sistema (core domain) |
+| `knowledge` | Alimenta a base: o que é um documento válido (`model`) e a ingestão da vault (`ingestion`) |
+| `infrastructure/rag` | O motor que responde: busca, gate, prompt, linter de output e pipeline |
+| `infrastructure/adapters` | Os contratos com o que é externo: Qdrant, LLM e telemetria |
+| `entrypoints` | Os endpoints da API. Montam as peças e chamam o pipeline |
 
 ### 3. Regras de arquitetura
 
-| #   | Regra                                                                                                                                                                                                                                                         |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R1  | No `policy`: `infrastructure` → `application` → `domain`. Nunca no sentido contrário                                                                                                                                                                          |
-| R2  | `policy/domain` só importa a biblioteca padrão, `built.shared_kernel`, ele mesmo e `built.policy.published`                                                                                                                                                   |
-| R3  | `shared_kernel` só importa a biblioteca padrão e a si mesmo. Nenhum contexto, nenhuma biblioteca externa                                                                                                                                                      |
-| R4  | `knowledge`, `rag` e `entrypoints` só usam do `policy`: `built.policy.published` e `built.policy.application`                                                                                                                                                 |
-| R5  | **Regra de ouro:** `built.knowledge.index` só é importado pela `ingestion` (escrita) e pelo `rag/retriever.py` (leitura). Assim ninguém consulta o Qdrant sem passar pelo filtro do `policy`, e dá para ter chaves do Qdrant separadas para leitura e escrita |
-| R6  | Só o próprio `rag/adapters` importa `rag/adapters`. O restante do `rag` conhece apenas `rag/ports.py`. Na Camada 4, a regra é estendida para permitir a montagem na entrada                                                                                   |
+| # | Regra |
+|---|---|
+| R1 | No `policy`: `infrastructure` → `application` → `domain`. Nunca no sentido contrário |
+| R2 | `policy/domain` só importa a biblioteca padrão, `built.shared_kernel`, ele mesmo e `built.policy.published` |
+| R3 | `shared_kernel` só importa a biblioteca padrão e a si mesmo. Nenhum contexto, nenhuma biblioteca externa |
+| R4 | Fora do `policy`, tudo (`knowledge`, `infrastructure`, `entrypoints`) só usa do `policy`: `built.policy.published` e `built.policy.application` |
+| R5 | **Regra de ouro:** `built.infrastructure.adapters.qdrant` só é importado por `built.knowledge.ingestion`, por `built.entrypoints` e por ele mesmo. A busca sempre passa pelo `rag`, que exige o filtro do `policy` |
+| R6 | `built.infrastructure.rag` nunca importa `built.infrastructure.adapters`: o motor conhece só as portas (`rag/ports.py`). Os adaptadores `llm` e `telemetry` só são importados por `built.entrypoints` e por eles mesmos |
 
 As regras são verificadas por testes de arquitetura (Camada 0).
 
+**Sobre a R5 e a R6:** as peças externas são ligadas ao motor na hora de montar a aplicação, em `entrypoints`. Quando o adaptador do Qdrant for criado, ele ganha dois módulos separados, `reader` e `writer`, e a R5 será refinada: `entrypoints` só importa o `reader` e só a ingestão importa o `writer`. Assim dá para ter chaves do Qdrant diferentes para ler e para escrever.
+
 ### 4. Rígido onde mora a segurança, flexível onde o comportamento muda
 
-- **Rígido:** `policy`, gate, linter de output, a regra de ouro do índice e o `shared_kernel` puro. Estas partes não mudam quando o comportamento do assistente muda.
-- **Flexível:** prompts, modelo de LLM, fluxo de qualificação e parâmetros de busca. Mudam sem tocar nas partes rígidas.
+- **Rígido:** `policy`, gate, linter de output, a regra de ouro do Qdrant e o `shared_kernel` puro. Estas partes não mudam quando o comportamento do assistente muda.
+- **Flexível:** prompts, modelo de LLM, fluxo de qualificação e parâmetros de busca.
 
-### 5. O que ficou de fora
+### 5. Por que o `rag` mora dentro do pacote `infrastructure`
 
-| Item                                                                 | Motivo                                                               |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `orchestration/` com agente, `tools/` e function calling             | Pertence à V2 (ADR-0002). Na V1 o fluxo é um pipeline determinístico |
-| Conexões (Phoenix, banco vetorial, logger) dentro do `shared_kernel` | Quebraria R2 e R3: a tecnologia entraria no `policy`                 |
-| Busca no índice sem passar pelo `policy`                             | Brecha de acesso. A R5 impede                                        |
-| Três andares em `knowledge` e `rag`                                  | Cerimônia sem ganho na V1                                            |
+Foi uma escolha do dono: o motor de resposta é uma capacidade técnica que o negócio consome, e fica ao lado dos adaptadores que ele usa. Isso mantém o formato estável.
 
-### 6. Quando promover um módulo ao desenho completo
+O custo é de leitura: o nome `infrastructure` sugere tecnologia, mas `gate`, `prompt` e `output_linter` são regras puras. Para não confundir os agentes:
 
-Um módulo plano vira contexto com três andares quando tiver pelo menos uma destas características:
+- a regra 10 do `AGENTS.md` diz que esses três módulos (e `ports`, `retriever` e `pipeline`) nunca importam tecnologia;
+- o motor só conhece as portas (R6);
+- se esse custo pesar, o ADR pode ser revisado e o `rag` sobe um nível, sem mudar o resto.
 
-- uma regra de negócio real, além de entrada e saída;
-- mais de uma entrada consumindo o módulo (por exemplo, cliente e operação);
-- necessidade de virar um serviço separado.
+### 6. Como o formato se mantém na V2 e na V3
 
-Isso deve acontecer com a LLM 2, a LLM 3 e os agentes de pós-venda.
+| O que chega | Onde entra |
+|---|---|
+| LLM 2 e LLM 3 | Mesmo motor (`infrastructure/rag`). O que muda é o perfil, que vem do `policy`, e as rotas novas em `entrypoints` |
+| Autenticação por token (site da BUILT) | No andar `policy/infrastructure`. Em espera na V1 (ADR-0002) |
+| Qualificação de leads (Camada 5) | Pasta nova `qualification/`, um contexto novo |
+| Leitura de documento anexado no chat | Módulo novo em `knowledge`. Entrada não confiável, sem previsão na V1 |
+| Agentes e tool calling (V2) | Pasta nova, decidida em ADR quando houver dado que justifique (ADR-0002) |
+| Um contexto virar serviço separado | Sai a pasta inteira. O que eles compartilham já está no `shared_kernel` |
+| Novo provedor externo (outro banco, outro LLM) | Pasta nova em `infrastructure/adapters` |
+
+### 7. O que ficou de fora
+
+| Item | Motivo |
+|---|---|
+| Conexões (Phoenix, Qdrant, logger) no `shared_kernel` | Quebraria R3: a tecnologia entraria no coração |
+| Busca no índice sem passar pelo `policy` | Brecha de acesso. A R5 e o filtro obrigatório impedem |
+| Três andares em `knowledge` e `entrypoints` | Cerimônia sem ganho na V1 |
 
 ## Consequências
 
 **Boas**
 
-- Menos pastas, menos código de repasse e menos passos de revisão na V1.
+- O formato da árvore fica estável da V1 à V3.
 - A segurança continua verificável por máquina.
-- A estrutura de partida já aponta as fronteiras para a V2 e a V3.
+- Tecnologia externa fica toda em um só lugar.
 
 **Custos**
 
-- `knowledge` e `rag` terão menos isolamento formal. Compensamos com as regras R4 a R6.
-- A promoção para contexto completo será uma refatoração planejada.
+- Algumas pastas existem só com docstring na V1.
+- O nome `infrastructure` aparece em dois lugares (andar e pacote).
+- A pureza dos módulos do `rag` depende da regra 10 do `AGENTS.md` e da revisão do dono.
 
 ## Quando revisar
 
 - Quando entrar a LLM 2 ou a LLM 3.
-- Quando um módulo atender algum critério da seção 6.
-- Quando os dados reais de uso mostrarem que o `rag` precisa ser dividido.
+- Se o nome `infrastructure` continuar confundindo os agentes.
+- Quando os dados reais de uso mostrarem que o motor precisa ser dividido.
