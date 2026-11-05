@@ -24,3 +24,36 @@ dev = [
     "testcontainers>=4.15.0",
     "uvicorn>=0.54.0",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "N", "S", "C4", "PT", "RUF", "T20"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.mypy]
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+strict_markers = true
+strict_config = true
+
+[tool.importlinter]
+root_package = "built"
+contracts = [
+    { name = "R1: policy.domain não importa application nem infrastructure", type = "forbidden", source_modules = ["built.policy.domain"], forbidden_modules = ["built.policy.application", "built.policy.infrastructure"] },
+    { name = "R1: policy.application não importa infrastructure", type = "forbidden", source_modules = ["built.policy.application"], forbidden_modules = ["built.policy.infrastructure"] },
+    { name = "R4: knowledge não importa policy.domain nem infrastructure", type = "forbidden", source_modules = ["built.knowledge.*"], forbidden_modules = ["built.policy.domain", "built.policy.infrastructure"] },
+    { name = "R4: infrastructure não importa policy.domain nem infrastructure", type = "forbidden", source_modules = ["built.infrastructure.*"], forbidden_modules = ["built.policy.domain", "built.policy.infrastructure"] },
+    { name = "R4: entrypoints não importa policy.domain nem infrastructure", type = "forbidden", source_modules = ["built.entrypoints.*"], forbidden_modules = ["built.policy.domain", "built.policy.infrastructure"] },
+    { name = "R5: rag não importa adapters.qdrant", type = "forbidden", source_modules = ["built.infrastructure.rag.*"], forbidden_modules = ["built.infrastructure.adapters.qdrant"] },
+    { name = "R5: policy não importa adapters.qdrant", type = "forbidden", source_modules = ["built.policy.*"], forbidden_modules = ["built.infrastructure.adapters.qdrant"] },
+    { name = "R5: shared_kernel não importa adapters.qdrant", type = "forbidden", source_modules = ["built.shared_kernel"], forbidden_modules = ["built.infrastructure.adapters.qdrant"] },
+    { name = "R5: knowledge.model não importa adapters.qdrant", type = "forbidden", source_modules = ["built.knowledge.model"], forbidden_modules = ["built.infrastructure.adapters.qdrant"] },
+    { name = "R6: rag não importa adapters", type = "forbidden", source_modules = ["built.infrastructure.rag.*"], forbidden_modules = ["built.infrastructure.adapters"] },
+]

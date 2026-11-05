@@ -15,14 +15,14 @@ Estas regras valem para o agent writer, para agentes autônomos e para robôs de
 1. Trabalhe só na etapa atual do prompt. Cada US é uma sprint com várias etapas: execute uma por vez, pare ao terminar e espere o dono dizer "próxima". Não adiante etapas ou camadas futuras e não aproveite para refatorar fora do escopo.
 
    **Ordem de construção** (vale a partir da Camada 1, quando passa a existir código de negócio). Escreva de dentro para fora, nesta ordem, e **pare ao fim de cada passo** para o dono conferir:
-   - **1º, regras sem tecnologia:** `policy/domain`, `knowledge/model` e, no `rag`, `gate.py`, `prompt.py` e `output_linter.py`. Só biblioteca padrão, `shared_kernel` e o que o `policy` publica.
-   - **2º, casos de uso e portas:** `policy/application`, `rag/ports.py` e `rag/pipeline.py`.
-   - **3º, tecnologia:** `policy/infrastructure`, `knowledge/ingestion`, `knowledge/index`, `rag/retriever.py` e `rag/adapters/`.
+   - **1º, regras sem tecnologia:** `policy/domain`, `knowledge/model` e, em `infrastructure/rag`, `gate.py`, `prompt.py` e `output_linter.py`. Só biblioteca padrão, `shared_kernel` e o que o `policy` publica.
+   - **2º, casos de uso e portas:** `policy/application`, `infrastructure/rag/ports.py`, `retriever.py` e `pipeline.py`.
+   - **3º, tecnologia:** `policy/infrastructure` (em espera na V1), `knowledge/ingestion` e `infrastructure/adapters/` (`qdrant`, `llm`, `telemetry`).
    - **4º, entrada (`entrypoints/`):** só depois que os três passos anteriores estiverem aprovados.
 
    Em cada passo:
    - Escreva só o que a prova de aceite da etapa exige. Código sem uso não entra. Se o passo ainda não precisa de algo, não crie.
-   - Entregue o código e um resumo curto: o que existe, o que cada peça faz e como verificar. Os testes do passo são só os que o dono especificou (regra 18).
+   - Entregue o código e um resumo curto: o que existe, o que cada peça faz e como verificar. Os testes do passo são só os que o dono especificou (regra 19).
    - Espere o "ok" do dono antes de começar o passo seguinte.
    - Não altere um passo já aprovado para acomodar o seguinte. Se achar que é preciso, pare e explique o motivo.
 
@@ -37,32 +37,30 @@ Estas regras valem para o agent writer, para agentes autônomos e para robôs de
 
 ## C. Arquitetura
 
-7. As dependências apontam para dentro. No `policy`: `infrastructure` → `application` → `domain`, e o andar `domain` só usa a biblioteca padrão. No `rag`, os módulos centrais (`retriever`, `gate`, `prompt`, `output_linter`, `pipeline`) conhecem as portas (`rag/ports.py`) e nunca os adaptadores (`rag/adapters/`). O `shared_kernel` só usa a biblioteca padrão.
+7. As dependências apontam para dentro. No `policy`: `infrastructure` → `application` → `domain`, e o andar `domain` só usa a biblioteca padrão. Em `infrastructure/rag`, os módulos (`ports`, `retriever`, `gate`, `prompt`, `output_linter`, `pipeline`) conhecem as portas (`ports.py`) e nunca os adaptadores (`infrastructure/adapters/`). O `shared_kernel` só usa a biblioteca padrão.
 
-   **Estrutura da V1** (ADR-0003). Os andares `domain/`, `application/` e `infrastructure/` existem só dentro do `policy`. Nunca ficam soltos na raiz de `src/built/`:
+   **Estrutura da V1** (ADR-0003, que é a fonte única da árvore). Os andares `domain/`, `application/` e `infrastructure/` existem só dentro do `policy`. Nunca ficam soltos na raiz de `src/built/`. O nome `infrastructure` aparece duas vezes: o **andar** `policy/infrastructure` e o **pacote** `infrastructure/` da raiz.
 
    ```
    src/built/
-   ├── shared_kernel/        # tipos e utilitários puros (não é um contexto)
-   ├── policy/               # contexto com os três andares
-   │   ├── published/        # vocabulário público do policy
-   │   ├── domain/           # andar: regras puras
-   │   ├── application/      # andar: orquestra e define portas
-   │   └── infrastructure/   # andar: tecnologia
-   ├── knowledge/            # contexto: vault → índice
-   │   ├── model/            # o que é um documento válido
-   │   ├── ingestion/        # lê, valida, divide em chunks e indexa
-   │   └── index/            # único lugar que fala com o Qdrant
-   └── rag/                  # contexto: responde perguntas
-       ├── ports.py  retriever.py  gate.py  prompt.py  output_linter.py  pipeline.py
-       └── adapters/         # LLM e telemetria
+   ├── shared_kernel/            # contratos e tipos comuns (só biblioteca padrão)
+   ├── policy/                   # contexto completo: quem vê o quê
+   │   ├── published/            # vocabulário público do policy
+   │   ├── domain/               # andar: regras puras
+   │   ├── application/          # andar: casos de uso e portas
+   │   └── infrastructure/       # andar: tecnologia do policy (token, sessão)
+   ├── knowledge/                # contexto: vault → índice
+   │   ├── model/                # o que é um documento válido
+   │   └── ingestion/            # lê a vault, valida, divide em chunks e indexa
+   ├── infrastructure/           # pacote: o motor de resposta e tudo que é externo
+   │   ├── rag/                  # ports, retriever, gate, prompt, output_linter, pipeline
+   │   └── adapters/             # qdrant, llm, telemetry
+   └── entrypoints/              # a API (código na Camada 4)
    ```
 
-   A pasta `entrypoints/` nasce na Camada 4.
-
-8. Um contexto não importa as peças internas de outro. Do `policy`, os outros só usam `built.policy.published` e `built.policy.application`. Só a `ingestion` escreve no índice (`knowledge/index`) e só o `rag/retriever.py` lê dele.
+8. Ninguém importa as peças internas do `policy`: fora dele, só se usa `built.policy.published` e `built.policy.application`. O adaptador `infrastructure/adapters/qdrant` só é importado pela `knowledge/ingestion` e por `entrypoints`. O motor `infrastructure/rag` nunca importa `infrastructure/adapters`. Os adaptadores `llm` e `telemetry` só são importados por `entrypoints`. Toda busca no índice exige o filtro vindo do `policy`.
 9. Nenhuma regra de visibilidade, escopo, tenant ou perfil fora do contexto `policy`. Nada de `if profile == ...` em outros lugares. O padrão é negar: valor ausente, desconhecido ou inválido significa acesso negado.
-10. Tecnologia (Qdrant, LLM, JWT, arquivos, telemetria com OpenTelemetry e Phoenix) só em `policy/infrastructure`, `knowledge/ingestion`, `knowledge/index` e `rag/adapters/`, atrás de uma porta. Nunca em `policy/domain`, `policy/application`, `shared_kernel`, `knowledge/model` nem nos módulos centrais do `rag`.
+10. Tecnologia (Qdrant, LLM, JWT, arquivos, telemetria com OpenTelemetry e Phoenix) só em `policy/infrastructure`, `knowledge/ingestion` e `infrastructure/adapters/`, atrás de uma porta. Nunca em `policy/domain`, `policy/application`, `shared_kernel`, `knowledge/model` nem em qualquer módulo de `infrastructure/rag`, apesar do nome da pasta: `gate`, `prompt`, `output_linter`, `retriever`, `pipeline` e `ports` são regras e orquestração, sem tecnologia.
 
 ## D. Segurança e dados
 
@@ -71,7 +69,7 @@ Estas regras valem para o agent writer, para agentes autônomos e para robôs de
 13. Valores em R$ e tabelas de preço existem só em documentos `interno`. Nunca em código, fixtures públicas ou respostas. Logs e telemetria registram IDs, números e tempos, nunca o texto da pergunta, da resposta, de chunks ou de documentos, nem nomes de cliente.
 14. A identidade do tenant vem da sessão autenticada e é passada como parâmetro. Nunca vem do texto da pergunta, de variável global ou de contexto implícito.
 15. Violação de política significa falhar fechado: registre o incidente e interrompa. Nunca deixe passar.
-16. portas do Qdrant e do Phoenix abertas só para o seu computador (127.0.0.1), nunca para a rede.
+16. As portas do Qdrant e do Phoenix ficam abertas só para o computador local (`127.0.0.1`), nunca para a rede.
 
 ## E. Testes e qualidade
 
@@ -87,7 +85,7 @@ Estas regras valem para o agent writer, para agentes autônomos e para robôs de
 
 ## F. Dependências e entrega
 
-20. Não altere as pastas e arquivos protegidos sem pedido explícito no prompt: `policy/domain`, `tests/architecture`, `.github`, `docs`, este arquivo, `pyproject.toml`, `uv.lock`, `.pre-commit-config.yaml` e futuramente `Dockerfile`, `docker-compose.yml`, .`dockerignore` . Se o prompt pedir, destaque no resumo.
+20. Não altere as pastas e arquivos protegidos sem pedido explícito no prompt: `policy/domain`, `tests/architecture`, `.github`, `docs`, este arquivo, `pyproject.toml`, `uv.lock`, `.pre-commit-config.yaml` e, futuramente, `Dockerfile`, `docker-compose.yml` e `.dockerignore`. Se o prompt pedir, destaque no resumo.
 21. Só adicione dependência listada no prompt da etapa. Qualquer outra precisa de aprovação antes. As versões ficam travadas no `uv.lock`.
 22. Termine com um resumo simples, em português: o que foi feito, por quê, como verificar, suposições, riscos e casos de teste sugeridos (não escritos). Se algum check falhou, diga qual e por quê. Nunca esconda uma falha.
 
