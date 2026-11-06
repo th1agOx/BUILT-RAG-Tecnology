@@ -1,0 +1,72 @@
+name: CI
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        # D5: https://github.com/actions/checkout/commit/11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        # D5: https://github.com/astral-sh/setup-uv/commit/68559e99cc807c1eb7e9238fd43a15bba460eec2
+
+      - name: Ler versão do Python do .python-version
+        run: |
+          echo "PYTHON_VERSION=$(cat .python-version)" >> $GITHUB_ENV
+
+      - name: Sincronizar dependências (--locked)
+        run: uv sync --locked
+
+      - name: ruff check
+        run: uv run ruff check .
+
+      - name: ruff format --check
+        run: uv run ruff format --check .
+
+      - name: mypy src
+        run: uv run mypy src
+
+      - name: pytest
+        run: uv run pytest
+
+      - name: lint-imports
+        run: uv run lint-imports
+
+  secrets:
+    name: secrets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout do repositório com histórico completo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+
+      - name: Sincronizar dependências (--locked)
+        run: uv sync --locked
+
+      - name: Varredura de segredos com gitleaks
+        uses: gitleaks/gitleaks-action@1701cf52ae9c3a406ba5cbb3b0aab9bd1c2cefee
+        # D5: https://github.com/gitleaks/gitleaks-action/commit/1701cf52ae9c3a406ba5cbb3b0aab9bd1c2cefee
+        with:
+          args: '--source . --verbose'

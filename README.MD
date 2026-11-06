@@ -1,10 +1,12 @@
 # BUILT-RAG V1
 
-## Sobre
-ServiÁo de entrega sob demanda com precificaÁ„o personalizada, usando assistentes de IA para automatizar o atendimento. Os assistentes respondem a partir de uma base de conhecimento (vault no Obsidian) usando RAG.
+![CI](https://github.com/th1agOx/BUILT-RAG-Tecnology/actions/workflows/ci.yml/badge.svg)
 
-## InstalaÁ„o
-`ash
+## Sobre
+Servi√ßo de entrega sob demanda com precifica√ß√£o personalizada, usando assistentes de IA para automatizar o atendimento. Os assistentes respondem a partir de uma base de conhecimento (vault no Obsidian) usando RAG.
+
+## Instala√ß√£o
+`bash
 uv sync
 `
 
@@ -16,7 +18,22 @@ Rodar os seguintes comandos:
 - uv run pytest
 - uv run lint-imports
 
-## DocumentaÁ„o
+## Como o CI funciona
+O CI roda em cada `push` e `pull_request` nos branches `main` e `dev`, com dois jobs:
+
+- **quality**: executa os cinco checks do `AGENTS.md` (`ruff check`, `ruff format --check`, `mypy src`, `pytest`, `lint-imports`) em m√°quina limpa (`ubuntu-24.04`), usando `uv sync --locked` e a vers√£o do Python definida em `.python-version`.
+- **secrets**: varre o hist√≥rico do reposit√≥rio com `gitleaks`, buscando segredos ou chaves expostos.
+
+Para rodar os mesmos checks localmente, use:
+```
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src
+uv run pytest
+uv run lint-imports
+```
+
+## Documenta√ß√£o
 - [docs/glossary.md](docs/glossary.md)
 - [docs/adr/0001-ddd.md](docs/adr/0001-ddd.md)
 - [docs/adr/0002-v1-scope.md](docs/adr/0002-v1-scope.md)
@@ -28,6 +45,6 @@ Rodar os seguintes comandos:
 - Etapa 2: Esqueleto
 - Etapa 3: Qualidade local
 - Etapa 4: Testes de arquitetura
-- Etapa 5: CI (adiada)
-- Etapa 6: GovernanÁa (adiada)
-- Etapa 7: DocumentaÁ„o e fechamento
+- Etapa 5: CI
+- Etapa 6: Governan√ßa (sua responsabilidade)
+- Etapa 7: Documenta√ß√£o e fechamento
