@@ -7,6 +7,7 @@ Serviço de entrega sob demanda com precificação personalizada, usando assiste
 
 ## Instalação
 `bash
+`ash
 uv sync
 `
 
@@ -45,6 +46,6 @@ uv run lint-imports
 - Etapa 2: Esqueleto
 - Etapa 3: Qualidade local
 - Etapa 4: Testes de arquitetura
-- Etapa 5: CI
-- Etapa 6: Governança (sua responsabilidade)
+- Etapa 5: CI (aprovada)
+- Etapa 6: Governança (aprovada)
 - Etapa 7: Documentação e fechamento
