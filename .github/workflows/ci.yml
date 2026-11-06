@@ -48,6 +48,8 @@ jobs:
 
       - name: lint-imports
         run: uv run lint-imports
+        env:
+          PYTHONPATH: src
 
   secrets:
     name: secrets
