@@ -67,9 +67,12 @@ jobs:
       - name: Sincronizar dependências (--locked)
         run: uv sync --locked
 
+      - name: Instalar gitleaks
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/zricethezav/gitleaks/master/install.sh | sh -s -- -b "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
       - name: Varredura de segredos com gitleaks
-        uses: gitleaks/gitleaks-action@1701cf52ae9c3a406ba5cbb3b0aab9bd1c2cefee
-        # D5: https://github.com/gitleaks/gitleaks-action/commit/1701cf52ae9c3a406ba5cbb3b0aab9bd1c2cefee
-        with:
-          args: '--source . --verbose'
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: gitleaks detect --source . --verbose
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
