@@ -3,7 +3,7 @@
 - **Status:** Aceito
 - **Data:** 2026-11-05 (substitui a versão de 2026-11-04, que mantinha `knowledge` e `rag` como módulos planos)
 - **Decisor:** Thiago (BUILT)
-- **Refina:** ADR-0001. É a fonte única da árvore de pastas e das regras de importação (R1 a R6).
+- **Refina:** ADR-0001. É a fonte única da árvore de pastas e das regras de importação (R1 a R7).
 
 ## Contexto
 
@@ -71,8 +71,11 @@ Em texto, escreva sempre "andar infrastructure do policy" ou "pacote infrastruct
 | R4 | Fora do `policy`, tudo (`knowledge`, `infrastructure`, `entrypoints`) só usa do `policy`: `built.policy.published` e `built.policy.application` |
 | R5 | **Regra de ouro:** `built.infrastructure.adapters.qdrant` só é importado por `built.knowledge.ingestion`, por `built.entrypoints` e por ele mesmo. A busca sempre passa pelo `rag`, que exige o filtro do `policy` |
 | R6 | `built.infrastructure.rag` nunca importa `built.infrastructure.adapters`: o motor conhece só as portas (`rag/ports.py`). Os adaptadores `llm` e `telemetry` só são importados por `built.entrypoints` e por eles mesmos |
+| R7 | Os módulos de `built.infrastructure.rag` só importam a biblioteca padrão, `built.shared_kernel`, `built.policy.published`, `built.policy.application` e eles mesmos. Nenhuma biblioteca externa |
 
 As regras são verificadas por testes de arquitetura (Camada 0).
+
+**Sobre a R7:** ela é uma lista permitida, então barra qualquer biblioteca de terceiros dentro do `rag`, até as inofensivas (por exemplo, `pydantic`). Se uma delas for necessária no futuro, a decisão é do dono e a R7 é revisada por ADR, nunca contornada.
 
 **Sobre a R5 e a R6:** as peças externas são ligadas ao motor na hora de montar a aplicação, em `entrypoints`. Quando o adaptador do Qdrant for criado, ele ganha dois módulos separados, `reader` e `writer`, e a R5 será refinada: `entrypoints` só importa o `reader` e só a ingestão importa o `writer`. Assim dá para ter chaves do Qdrant diferentes para ler e para escrever.
 
@@ -87,7 +90,7 @@ Foi uma escolha do dono: o motor de resposta é uma capacidade técnica que o ne
 
 O custo é de leitura: o nome `infrastructure` sugere tecnologia, mas `gate`, `prompt` e `output_linter` são regras puras. Para não confundir os agentes:
 
-- a regra 10 do `AGENTS.md` diz que esses três módulos (e `ports`, `retriever` e `pipeline`) nunca importam tecnologia;
+- a R7 impõe isso por teste: nenhum módulo do `rag` importa biblioteca externa (só biblioteca padrão e o que a R7 lista). A regra 10 do `AGENTS.md` repete o motivo para os agentes;
 - o motor só conhece as portas (R6);
 - se esse custo pesar, o ADR pode ser revisado e o `rag` sobe um nível, sem mudar o resto.
 

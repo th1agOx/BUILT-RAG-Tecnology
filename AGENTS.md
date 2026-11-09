@@ -60,7 +60,7 @@ Estas regras valem para o agent writer, para agentes autônomos e para robôs de
 
 8. Ninguém importa as peças internas do `policy`: fora dele, só se usa `built.policy.published` e `built.policy.application`. O adaptador `infrastructure/adapters/qdrant` só é importado pela `knowledge/ingestion` e por `entrypoints`. O motor `infrastructure/rag` nunca importa `infrastructure/adapters`. Os adaptadores `llm` e `telemetry` só são importados por `entrypoints`. Toda busca no índice exige o filtro vindo do `policy`.
 9. Nenhuma regra de visibilidade, escopo, tenant ou perfil fora do contexto `policy`. Nada de `if profile == ...` em outros lugares. O padrão é negar: valor ausente, desconhecido ou inválido significa acesso negado.
-10. Tecnologia (Qdrant, LLM, JWT, arquivos, telemetria com OpenTelemetry e Phoenix) só em `policy/infrastructure`, `knowledge/ingestion` e `infrastructure/adapters/`, atrás de uma porta. Nunca em `policy/domain`, `policy/application`, `shared_kernel`, `knowledge/model` nem em qualquer módulo de `infrastructure/rag`, apesar do nome da pasta: `gate`, `prompt`, `output_linter`, `retriever`, `pipeline` e `ports` são regras e orquestração, sem tecnologia.
+10. Tecnologia (Qdrant, LLM, JWT, arquivos, telemetria com OpenTelemetry e Phoenix) só em `policy/infrastructure`, `knowledge/ingestion` e `infrastructure/adapters/`, atrás de uma porta. Nunca em `policy/domain`, `policy/application`, `shared_kernel`, `knowledge/model` nem em qualquer módulo de `infrastructure/rag`, apesar do nome da pasta: `gate`, `prompt`, `output_linter`, `retriever`, `pipeline` e `ports` são regras e orquestração, sem tecnologia (a R7 verifica isso por teste).
 
 ## D. Segurança e dados
 
