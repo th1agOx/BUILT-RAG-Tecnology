@@ -72,3 +72,4 @@ jobs:
         # D5: https://github.com/gitleaks/gitleaks-action/commit/1701cf52ae9c3a406ba5cbb3b0aab9bd1c2cefee
         with:
           args: '--source . --verbose'
+          token: ${{ secrets.GITHUB_TOKEN }}
