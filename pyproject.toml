@@ -6,7 +6,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
-    "deepeval>=4.3.2",
+    "deepeval>=4.3.3",
     "fastapi>=0.162.0",
     "httpx>=0.28.1",
     "hypothesis>=6.170.14",
