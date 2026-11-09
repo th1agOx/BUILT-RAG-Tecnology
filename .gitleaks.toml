@@ -1,0 +1,7 @@
+[[allowlist]]
+description = "Exemplo fictício de API key em documentação de testes de aceitação do CI"
+regex = 'sk-1234567890abcdef'
+
+[[allowlist]]
+description = "Exemplo fictício de segredo em relatório QA F0"
+regex = 'sk-fake-secret-example'
